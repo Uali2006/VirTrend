@@ -8,7 +8,6 @@ from scipy.stats import gamma as gamma_dist, lognorm, pearsonr
 
 st.set_page_config(page_title="Universal Epidemic Analyzer", page_icon="🦠", layout="wide")
 
-# ------------------ Helpers ------------------
 def guess_columns(df: pd.DataFrame):
     cols = [str(c).lower() for c in df.columns]
     def pick(keys):
@@ -109,7 +108,6 @@ VIRUS_PRESETS = {
     "Custom":            (5.0, 2.0),
 }
 
-# ------------------ Sidebar ------------------
 st.sidebar.title("Parameters")
 uploaded = st.sidebar.file_uploader("Upload CSV or Excel (date + cases; deaths optional)", type=["csv","xlsx","xls"])
 
@@ -174,12 +172,10 @@ if death_col is not None:
     if join["cum_cases"].iloc[-1] > 0:
         CFR_overall = 100.0 * join["cum_deaths"].iloc[-1] / join["cum_cases"].iloc[-1]
 
-# ------------------ Rt ------------------
 w = discretize_generation_time(mean_si, sd_si, max_days=30, kind=si_kind)
 lam, Rt_mean, Rt_low, Rt_high = cori_rt(data["incidence_smoothed"].to_numpy(), w, tau=tau)
 data["Rt_mean"], data["Rt_low"], data["Rt_high"] = Rt_mean, Rt_low, Rt_high
 
-# ------------------ gamma, S_t, beta(t) ------------------
 gamma_rate = 1.0 / infectious_days
 cum_cases_obs = data["incidence"].cumsum().to_numpy()
 cum_inf_true  = cum_cases_obs / max(ascertain, 1e-6)
@@ -193,7 +189,7 @@ S_t = np.clip(1.0 - immune_share, 0.01, 1.0)
 beta_t = Rt_mean * gamma_rate / S_t
 beta_t = np.where(np.isfinite(beta_t), beta_t, np.nan)
 
-# ------------------ Valid mask ------------------
+
 valid_mask = (
     np.isfinite(Rt_mean) &
     (data["incidence_smoothed"].to_numpy() >= min_cases_for_rt) &
@@ -204,7 +200,7 @@ RtL_valid  = np.where(valid_mask, Rt_low,  np.nan)
 RtH_valid  = np.where(valid_mask, Rt_high, np.nan)
 beta_valid = np.where(valid_mask, beta_t,  np.nan)
 
-# ------------------ R0 ------------------
+
 R0_model = (beta_manual / gamma_manual) if (gamma_manual and gamma_manual>0) else np.nan
 
 early = data.loc[data["incidence_smoothed"]>=min_cases_for_rt].head(14)
@@ -223,12 +219,12 @@ R0_initialRt = Rt0_valid_series.iloc[0] if len(Rt0_valid_series) else np.nan
 R0_pick = next((v for v in [R0_model, R0_from_r, R0_initialRt] if np.isfinite(v)), np.nan)
 HIT = (1.0 - 1.0/R0_pick) if (np.isfinite(R0_pick) and R0_pick>1) else np.nan
 
-# ------------------ Vaccination analysis ------------------
+
 Rt_vacc_valid = Rt_valid * (1.0 - vax_cov*vax_eff)
 prevent_frac = np.clip(1.0 - (Rt_vacc_valid / Rt_valid), 0, 1)
 prevent_frac = np.where(np.isfinite(prevent_frac), prevent_frac, np.nan)
 
-# ------------------ Pearson correlations ------------------
+
 vm = valid_mask & np.isfinite(beta_valid)
 r2 = p2 = np.nan
 if vm.any():
@@ -238,7 +234,7 @@ r1 = p1 = np.nan
 if vm2.any():
     r1, p1 = pearsonr(Rt_valid[vm2], data["incidence_smoothed"].to_numpy()[vm2])
 
-# ------------------ Charts ------------------
+
 col1, col2 = st.columns([2,1])
 
 with col1:
@@ -297,7 +293,7 @@ with col2:
     st.write(f"**Pearson r(Rt, incidence)** = {r1:.3f} (p={p1:.3g})" if np.isfinite(r1) else "**Pearson r(Rt, incidence):** n/a")
     st.write(f"**Pearson r(Rt, β(t))** = {r2:.3f} (p={p2:.3g})" if np.isfinite(r2) else "**Pearson r(Rt, β(t))**: n/a")
 
-# ------------------ Export ------------------
+
 if export:
     out_df = data.copy()
     out_df["beta_t"] = beta_t
