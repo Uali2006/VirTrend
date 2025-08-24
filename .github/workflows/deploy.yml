@@ -1,6 +1,19 @@
 name: Deploy Vite app to GitHub Pages
 
 on:
+  name: Deploy Vite app to GitHub Pages
+
+  on:
+    push:
+      branches:
+        - main
+
+  permissions:
+    contents: write   # 👈 вот это добавляем
+
+  jobs:
+    deploy:
+      runs-on: ubuntu-latest
   push:
     branches:
       - main
